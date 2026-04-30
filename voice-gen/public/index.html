@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>🎤 20 sec Voice → QR</h2>
+
+<button onclick="start()">Start</button>
+<button onclick="stop()">Stop</button>
+
+<br><br>
+<canvas id="qr"></canvas>
+
+<br><br>
+<audio id="audio" controls></audio>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js"></script>
+
+<script>
+let recorder, chunks = [], stream;
+
+async function start(){
+  chunks = [];
+
+  stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  recorder = new MediaRecorder(stream);
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+
+  recorder.start();
+
+  setTimeout(stop, 20000);
+}
+
+function stop(){
+  if(recorder && recorder.state === "recording"){
+    recorder.stop();
+    stream.getTracks().forEach(t => t.stop());
+  }
+
+  recorder.onstop = async () => {
+    let blob = new Blob(chunks, { type: "audio/webm" });
+
+    let formData = new FormData();
+    formData.append("audio", blob);
+
+    let res = await fetch("/upload", {
+      method: "POST",
+      body: formData
+    });
+
+    let data = await res.json();
+
+    document.getElementById("audio").src = data.url;
+
+    QRCode.toCanvas(document.getElementById("qr"), data.url);
+  };
+}
+</script>
+
+</body>
+</html>
